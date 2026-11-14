@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mes tâches</title>
+<style>
+  body { font-family: sans-serif; margin: 0; padding: 12px; background: #f4f4f4; font-size: 18px; }
+  h1 { font-size: 24px; margin: 4px 0 12px; }
+  input, select, button { font-size: 18px; padding: 10px; margin: 4px 0; width: 100%; box-sizing: border-box; }
+  button { background: #2a6; color: white; border: none; border-radius: 8px; }
+  .tache { background: white; border-radius: 8px; padding: 10px; margin: 8px 0; }
+  .fait { background: #c33; padding: 6px; margin-top: 6px; }
+  .petit { color: #555; font-size: 15px; }
+</style>
+</head>
+<body>
+<h1>Mes tâches</h1>
+
+<input id="texte" placeholder="Quelle tâche ?">
+<button onclick="ecouter()">Parler (micro)</button>
+<button onclick="lire()">Lire mes tâches à voix haute</button>
+<select id="priorite">
+  <option value="1">Priorité 1 (urgente)</option>
+  <option value="2">Priorité 2</option>
+  <option value="3">Priorité 3</option>
+  <option value="4" selected>Priorité 4 (normale)</option>
+</select>
+<input id="categorie" placeholder="Catégorie (ex. maison)">
+<input id="date" type="date">
+<button onclick="ajouter()">Ajouter la tâche</button>
+
+<div id="liste"></div>
+
+<script>
+var taches = JSON.parse(localStorage.getItem('taches') || '[]');
+
+function sauver() {
+  localStorage.setItem('taches', JSON.stringify(taches));
+}
+
+function ajouter() {
+  var texte = document.getElementById('texte').value.trim();
+  if (!texte) return;
+  taches.push({
+    texte: texte,
+    priorite: document.getElementById('priorite').value,
+    categorie: document.getElementById('categorie').value.trim() || 'général',
+    date: document.getElementById('date').value
+  });
+  sauver();
+  document.getElementById('texte').value = '';
+  document.getElementById('categorie').value = '';
+  document.getElementById('date').value = '';
+  afficher();
+}
+
+function terminer(i) {
+  taches.splice(i, 1);
+  sauver();
+  afficher();
+}
+
+function afficher() {
+  var html = '';
+  taches.sort(function (a, b) { return a.priorite - b.priorite; });
+  for (var i = 0; i < taches.length; i++) {
+    var t = taches[i];
+    html += '<div class="tache"><b>' + t.texte + '</b><br>' +
+      '<span class="petit">Priorité ' + t.priorite + ' · ' + t.categorie +
+      (t.date ? ' · pour le ' + t.date : '') + '</span>' +
+      '<button class="fait" onclick="terminer(' + i + ')">Terminée</button></div>';
+  }
+  if (!html) html = '<p class="petit">Aucune tâche.</p>';
+  document.getElementById('liste').innerHTML = html;
+}
+
+function ecouter() {
+  var Reco = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!Reco) { alert('La reconnaissance vocale n\'est pas disponible ici.'); return; }
+  var r = new Reco();
+  r.lang = 'fr-FR';
+  r.onresult = function (ev) {
+    document.getElementById('texte').value = ev.results[0][0].transcript;
+  };
+  r.onerror = function () { alert('Je n\'ai pas compris, réessaie.'); };
+  r.start();
+}
+
+function lire() {
+  var phrase = '';
+  for (var i = 0; i < taches.length; i++) {
+    var t = taches[i];
+    phrase += 'Priorité ' + t.priorite + ', ' + t.categorie + ' : ' + t.texte + '. ';
+  }
+  if (!phrase) phrase = 'Aucune tâche.';
+  var u = new SpeechSynthesisUtterance(phrase);
+  u.lang = 'fr-FR';
+  speechSynthesis.cancel();
+  speechSynthesis.speak(u);
+}
+afficher();
+</script>
+</body>
+</html>
