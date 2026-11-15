@@ -14,6 +14,12 @@
   .petit { color: #555; font-size: 15px; }
   .ligne { display: flex; gap: 6px; align-items: center; }
   .mic { width: 60px; flex: none; }
+  .prio { display: flex; gap: 6px; align-items: center; }
+  .prio span { width: 60px; flex: none; font-size: 14px; color: #555; text-align: center; }
+  .p { background: #ddd; color: #333; flex: 1; }
+  .p.on { background: #2a6; color: white; font-weight: bold; }
+  .gris { background: #777; }
+  .fini { background: #e8e8e8; }
 </style>
 </head>
 <body>
@@ -21,24 +27,45 @@
 <select id="langue"><option value="fr-FR">Français</option><option value="ar-SA">العربية</option></select>
 
 <div class="ligne"><button class="mic" onclick="ecouter('texte')">🎤</button><input id="texte" placeholder="Quelle tâche ?"></div>
-<select id="priorite">
-  <option value="1">Priorité 1 (urgente)</option>
-  <option value="2">Priorité 2</option>
-  <option value="3">Priorité 3</option>
-  <option value="4" selected>Priorité 4 (normale)</option>
-</select>
 <div class="ligne"><button class="mic" onclick="ecouter('categorie')">🎤</button><input id="categorie" placeholder="Catégorie (ex. maison)"></div>
 <div class="ligne"><button class="mic" onclick="ecouter('date')">🎤</button><input id="date" placeholder="Date (ex. 2026-12-25)"></div>
+<div class="prio"><span>Priorité</span>
+  <button class="p" data-v="1" onclick="choisir('1')">1</button>
+  <button class="p" data-v="2" onclick="choisir('2')">2</button>
+  <button class="p" data-v="3" onclick="choisir('3')">3</button>
+  <button class="p on" data-v="4" onclick="choisir('4')">4</button>
+</div>
 <button onclick="ajouter()">Ajouter la tâche</button>
 <button onclick="lire()">Lire mes tâches à voix haute</button>
 
 <div id="liste"></div>
 
+<button class="gris" onclick="basculer()">Voir / cacher les archives</button>
+<div id="archzone" style="display:none">
+  <div id="arch"></div>
+  <button class="gris" onclick="viderArchives()">Vider les archives</button>
+</div>
+
 <script>
 var taches = JSON.parse(localStorage.getItem('taches') || '[]');
+var archives = JSON.parse(localStorage.getItem('archives') || '[]');
+var prio = '4';
 
 function sauver() {
   localStorage.setItem('taches', JSON.stringify(taches));
+  localStorage.setItem('archives', JSON.stringify(archives));
+}
+
+function esc(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function choisir(v) {
+  prio = v;
+  var b = document.querySelectorAll('.p');
+  for (var i = 0; i < b.length; i++) {
+    b[i].className = 'p' + (b[i].getAttribute('data-v') === prio ? ' on' : '');
+  }
 }
 
 function ajouter() {
@@ -46,7 +73,7 @@ function ajouter() {
   if (!texte) return;
   taches.push({
     texte: texte,
-    priorite: document.getElementById('priorite').value,
+    priorite: prio,
     categorie: document.getElementById('categorie').value.trim() || 'général',
     date: document.getElementById('date').value.trim()
   });
@@ -54,13 +81,17 @@ function ajouter() {
   document.getElementById('texte').value = '';
   document.getElementById('categorie').value = '';
   document.getElementById('date').value = '';
+  choisir('4');
   afficher();
 }
 
 function terminer(i) {
-  taches.splice(i, 1);
+  var t = taches.splice(i, 1)[0];
+  t.fin = new Date().toISOString().slice(0, 10);
+  archives.push(t);
   sauver();
   afficher();
+  afficherArchives();
 }
 
 function afficher() {
@@ -68,13 +99,39 @@ function afficher() {
   taches.sort(function (a, b) { return a.priorite - b.priorite; });
   for (var i = 0; i < taches.length; i++) {
     var t = taches[i];
-    html += '<div class="tache"><b>' + t.texte + '</b><br>' +
-      '<span class="petit">Priorité ' + t.priorite + ' · ' + t.categorie +
-      (t.date ? ' · pour le ' + t.date : '') + '</span>' +
+    html += '<div class="tache"><b>' + esc(t.texte) + '</b><br>' +
+      '<span class="petit">Priorité ' + t.priorite + ' · ' + esc(t.categorie) +
+      (t.date ? ' · pour le ' + esc(t.date) : '') + '</span>' +
       '<button class="fait" onclick="terminer(' + i + ')">Terminée</button></div>';
   }
   if (!html) html = '<p class="petit">Aucune tâche.</p>';
   document.getElementById('liste').innerHTML = html;
+}
+
+function afficherArchives() {
+  var h = '';
+  for (var i = archives.length - 1; i >= 0; i--) {
+    var t = archives[i];
+    h += '<div class="tache fini"><b>' + esc(t.texte) + '</b><br>' +
+      '<span class="petit">' + esc(t.categorie) + ' · terminée le ' + esc(t.fin || '') + '</span></div>';
+  }
+  if (!h) h = '<p class="petit">Aucune archive.</p>';
+  document.getElementById('arch').innerHTML = h;
+}
+
+function basculer() {
+  var z = document.getElementById('archzone');
+  var visible = z.style.display === 'block';
+  z.style.display = visible ? 'none' : 'block';
+  if (!visible) afficherArchives();
+}
+
+function viderArchives() {
+  if (confirm('Vider toutes les archives ?')) {
+    archives = [];
+    sauver();
+    afficherArchives();
+  }
 }
 
 function ecouter(champ) {
