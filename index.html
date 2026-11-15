@@ -12,23 +12,25 @@
   .tache { background: white; border-radius: 8px; padding: 10px; margin: 8px 0; }
   .fait { background: #c33; padding: 6px; margin-top: 6px; }
   .petit { color: #555; font-size: 15px; }
+  .ligne { display: flex; gap: 6px; align-items: center; }
+  .mic { width: 60px; flex: none; }
 </style>
 </head>
 <body>
 <h1>Mes tâches</h1>
+<select id="langue"><option value="fr-FR">Français</option><option value="ar-SA">العربية</option></select>
 
-<input id="texte" placeholder="Quelle tâche ?">
-<button onclick="ecouter()">Parler (micro)</button>
-<button onclick="lire()">Lire mes tâches à voix haute</button>
+<div class="ligne"><button class="mic" onclick="ecouter('texte')">🎤</button><input id="texte" placeholder="Quelle tâche ?"></div>
 <select id="priorite">
   <option value="1">Priorité 1 (urgente)</option>
   <option value="2">Priorité 2</option>
   <option value="3">Priorité 3</option>
   <option value="4" selected>Priorité 4 (normale)</option>
 </select>
-<input id="categorie" placeholder="Catégorie (ex. maison)">
-<input id="date" type="date">
+<div class="ligne"><button class="mic" onclick="ecouter('categorie')">🎤</button><input id="categorie" placeholder="Catégorie (ex. maison)"></div>
+<div class="ligne"><button class="mic" onclick="ecouter('date')">🎤</button><input id="date" placeholder="Date (ex. 2026-12-25)"></div>
 <button onclick="ajouter()">Ajouter la tâche</button>
+<button onclick="lire()">Lire mes tâches à voix haute</button>
 
 <div id="liste"></div>
 
@@ -46,7 +48,7 @@ function ajouter() {
     texte: texte,
     priorite: document.getElementById('priorite').value,
     categorie: document.getElementById('categorie').value.trim() || 'général',
-    date: document.getElementById('date').value
+    date: document.getElementById('date').value.trim()
   });
   sauver();
   document.getElementById('texte').value = '';
@@ -75,30 +77,38 @@ function afficher() {
   document.getElementById('liste').innerHTML = html;
 }
 
-function ecouter() {
+function ecouter(champ) {
   var Reco = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!Reco) { alert('La reconnaissance vocale n\'est pas disponible ici.'); return; }
   var r = new Reco();
-  r.lang = 'fr-FR';
+  r.lang = document.getElementById('langue').value;
   r.onresult = function (ev) {
-    document.getElementById('texte').value = ev.results[0][0].transcript;
+    document.getElementById(champ).value = ev.results[0][0].transcript;
   };
   r.onerror = function () { alert('Je n\'ai pas compris, réessaie.'); };
   r.start();
 }
 
 function lire() {
-  var phrase = '';
+  speechSynthesis.cancel();
+  if (!taches.length) {
+    var v = new SpeechSynthesisUtterance('Aucune tâche.');
+    v.lang = 'fr-FR';
+    speechSynthesis.speak(v);
+    return;
+  }
   for (var i = 0; i < taches.length; i++) {
     var t = taches[i];
-    phrase += 'Priorité ' + t.priorite + ', ' + t.categorie + ' : ' + t.texte + '. ';
+    var arabe = /[\u0600-\u06FF]/.test(t.texte);
+    var phrase = arabe
+      ? t.texte
+      : 'Priorité ' + t.priorite + ', ' + t.categorie + ' : ' + t.texte + '.';
+    var u = new SpeechSynthesisUtterance(phrase);
+    u.lang = arabe ? 'ar-SA' : 'fr-FR';
+    speechSynthesis.speak(u);
   }
-  if (!phrase) phrase = 'Aucune tâche.';
-  var u = new SpeechSynthesisUtterance(phrase);
-  u.lang = 'fr-FR';
-  speechSynthesis.cancel();
-  speechSynthesis.speak(u);
 }
+
 afficher();
 </script>
 </body>
